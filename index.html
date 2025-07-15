@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Token-Protected Slot Machine</title>
+  <style>
+    /* page & slot styling (unchanged) */
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #222;
+      margin: 0;
+      color: #fff;
+      font-family: sans-serif;
+    }
+    .slot-machine { display: flex; gap: 10px; margin-bottom: 20px; }
+    .reel {
+      width: 120px; height: 120px;
+      border: 4px solid #444; border-radius: 8px;
+      background: #111; overflow: hidden; position: relative;
+    }
+    .reel img {
+      position: absolute; top:50%; left:50%;
+      transform: translate(-50%,-50%);
+      max-width:100%; max-height:100%;
+    }
+    button {
+      padding: 10px 20px; font-size:1rem;
+      background:#28a; border:none; border-radius:5px;
+      color:#fff; cursor:pointer;
+    }
+    button:disabled { opacity:0.5; cursor:default; }
+
+    /* modal backdrop */
+    .modal {
+      position: fixed; top:0; left:0; right:0; bottom:0;
+      background: rgba(0,0,0,0.7);
+      display: flex; align-items:center; justify-content:center;
+    }
+    .hidden { display: none; }
+
+    /* modal content */
+    .modal-content {
+      background: #333; padding:20px; border-radius:8px;
+      width: 90%; max-width: 300px; text-align: center;
+    }
+    .modal-content input {
+      width: 100%; padding: 8px; margin: 10px 0;
+      font-size:1rem; border-radius:4px; border:1px solid #555;
+      background:#222; color:#fff;
+    }
+    .modal-content p {
+      margin: 20px 0;
+      font-size: 1.2rem;
+      color: #f55;
+    }
+    .modal-content .btn-group {
+      display: flex; gap: 10px; justify-content: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- slot machine -->
+  <div class="slot-machine">
+    <div class="reel"><img src="" alt="?" /></div>
+    <div class="reel"><img src="" alt="?" /></div>
+    <div class="reel"><img src="" alt="?" /></div>
+  </div>
+  <button id="spinButton">Spin!</button>
+
+  <!-- token entry modal -->
+  <div id="tokenModal" class="modal hidden">
+    <div class="modal-content">
+      <!-- entry form -->
+      <div id="entrySection">
+        <h2>Enter 9-digit Token</h2>
+        <input type="text" id="tokenInput" maxlength="9" placeholder="123456789" />
+        <div class="btn-group">
+          <button id="submitToken">Submit</button>
+          <button id="cancelToken">Cancel</button>
+        </div>
+      </div>
+      <!-- error message -->
+      <div id="errorSection" class="hidden">
+        <p>Token Invalid</p>
+        <button id="closeError">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === your image slot machine logic ===
+    const images = [
+      'https://example.com/img1.png',
+      'https://example.com/img2.png',
+      'https://example.com/img3.png',
+      'https://example.com/img4.png',
+      'https://example.com/img5.png',
+    ];
+    const reels = Array.from(document.querySelectorAll('.reel img'));
+    const VALID_TOKEN = '123456789';  // ← change this to your actual token
+
+    // simple shuffle
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function spinReel(imgEl, finalSrc, duration) {
+      return new Promise(resolve => {
+        const start = Date.now();
+        (function step() {
+          if (Date.now() - start < duration) {
+            imgEl.src = images[Math.floor(Math.random() * images.length)];
+            requestAnimationFrame(step);
+          } else {
+            imgEl.src = finalSrc;
+            resolve();
+          }
+        })();
+      });
+    }
+
+    async function spinAll() {
+      document.querySelectorAll('button').forEach(b=>b.disabled=true);
+      // pick three unique
+      const idx = shuffle(images.map((_,i)=>i)).slice(0,3);
+      const finals = idx.map(i=>images[i]);
+      await Promise.all(reels.map((img,i) =>
+        spinReel(img, finals[i], 1000 + i*500)
+      ));
+      document.querySelectorAll('button').forEach(b=>b.disabled=false);
+    }
+
+    // initialize reels
+    reels.forEach(img => img.src = 'https://via.placeholder.com/100?text=?');
+
+    // === token-modal logic ===
+    const modal       = document.getElementById('tokenModal');
+    const entrySec    = document.getElementById('entrySection');
+    const errorSec    = document.getElementById('errorSection');
+    const tokenInput  = document.getElementById('tokenInput');
+
+    document.getElementById('spinButton').onclick = () => {
+      modal.classList.remove('hidden');
+      tokenInput.focus();
+    };
+    document.getElementById('cancelToken').onclick = closeModal;
+    document.getElementById('submitToken').onclick = () => {
+      if (tokenInput.value === VALID_TOKEN) {
+        closeModal();
+        spinAll();
+      } else {
+        entrySec.classList.add('hidden');
+        errorSec.classList.remove('hidden');
+      }
+    };
+    document.getElementById('closeError').onclick = () => {
+      errorSec.classList.add('hidden');
+      entrySec.classList.remove('hidden');
+      tokenInput.value = '';
+      tokenInput.focus();
+    };
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      entrySec.classList.remove('hidden');
+      errorSec.classList.add('hidden');
+      tokenInput.value = '';
+    }
+  </script>
+</body>
+</html>
